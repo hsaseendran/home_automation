@@ -1,10 +1,16 @@
+// tcp-simulator.js
 import { NETWORK_CONFIG } from './utils/constants.js';
 
 export class TCPSimulator {
     constructor(networkMonitor, roomManager) {
         this.networkMonitor = networkMonitor;
         this.roomManager = roomManager;
+        this.roomControllers = null;
         this.tcpSessions = {};
+    }
+    
+    setRoomControllers(controllers) {
+        this.roomControllers = controllers;
     }
     
     createSessionKey(fromDevice, toDevice) {
@@ -142,12 +148,29 @@ export class TCPSimulator {
         
         // Server acknowledges and sends commands
         setTimeout(() => {
-            const serverCommand = {
-                commands: [
-                    { type: 'SET_LIGHT', value: peopleCount > 0 ? 'ON' : 'OFF' },
-                    { type: 'SET_TEMP', value: 23 }
-                ]
-            };
+            // Server logic to determine commands based on people count and time
+            const currentTime = new Date().getHours();
+            const isDaytime = currentTime >= 7 && currentTime < 19;
+            const commands = [];
+            
+            // Light command based on occupancy and time
+            if (peopleCount > 0 && !isDaytime) {
+                commands.push({ type: 'SET_LIGHT', value: 'ON' });
+            } else if (peopleCount === 0) {
+                commands.push({ type: 'SET_LIGHT', value: 'OFF' });
+            }
+            
+            // Temperature command based on occupancy and time
+            let targetTemp = 18; // Default unoccupied temp
+            if (peopleCount > 0) {
+                if (currentTime >= 6 && currentTime <= 9) targetTemp = 23;
+                else if (currentTime >= 17 && currentTime <= 22) targetTemp = 24;
+                else if (currentTime >= 22 || currentTime <= 6) targetTemp = 20;
+                else targetTemp = 22;
+            }
+            commands.push({ type: 'SET_TEMP', value: targetTemp });
+            
+            const serverCommand = { commands };
             
             this.networkMonitor.logPacket({
                 src: server.ip + ':' + server.port,
@@ -164,6 +187,11 @@ export class TCPSimulator {
                 ],
                 data: serverCommand
             });
+            
+            // Now route commands to the room controller
+            if (this.roomControllers && this.roomControllers[roomId]) {
+                this.roomControllers[roomId].processServerCommands(commands);
+            }
             
             session.ack += JSON.stringify(serverCommand).length;
         }, 500);

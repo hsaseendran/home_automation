@@ -13,11 +13,12 @@ home-automation/
 ├── js/
 │   ├── main.js        # Application entry point
 │   ├── scene-setup.js # Three.js scene initialization
-│   ├── network-monitor.js # Network monitoring UI
+│   ├── network-monitor-iot.js # Network monitoring UI
 │   ├── tcp-simulator.js # TCP/IP packet simulation
 │   ├── room-manager.js # Room state management
 │   ├── people-simulator.js # People movement simulation
-│   ├── ui-controls.js # User interface controls
+│   ├── ui-controls-iot.js # User interface controls
+│   ├── iot-protocols.js # Iot protocols
 │   └── utils/
 │       ├── constants.js # Configuration constants
 │       └── helpers.js   # Utility functions

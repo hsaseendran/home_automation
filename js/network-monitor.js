@@ -1,227 +1,137 @@
-import { NETWORK_CONFIG, ROOMS_CONFIG } from './utils/constants.js';
-import { formatBytes } from './utils/helpers.js';
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D TCP/IP & IoT Home Automation System</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/network-monitor.css">
+</head>
+<body>
+    <div id="container">
+        <div id="main-view">
+            <div id="canvas-container"></div>
+            
+            <div id="controls">
+                <h3>Home Automation Control</h3>
+                <div>
+                    <label>Time: </label>
+                    <span id="current-time">12:00</span>
+                    <input type="range" id="time-slider" min="0" max="23" value="12" style="width: 150px;">
+                </div>
+                <button class="btn" id="auto-advance">Auto-Advance Time</button>
+                <button class="btn" id="reset-sim">Reset Simulation</button>
+            </div>
+            
+            <div id="info-panel">
+                <h4>Room Status</h4>
+                <div id="room-info"></div>
+            </div>
+        </div>
+        
+        <div id="network-monitor">
+            <div style="display: flex; border-bottom: 1px solid #555;">
+                <div class="monitor-tab active" data-tab="packets">TCP/IP Packets</div>
+                <div class="monitor-tab" data-tab="stats">Network Stats</div>
+                <div class="monitor-tab" data-tab="iot">IoT Protocols</div>
+            </div>
+            
+            <div id="packets" class="tab-content active">
+                <h3>TCP/IP Packet Monitor</h3>
+                <div class="log-filters">
+                    <button class="filter-btn active" data-filter="all">All</button>
+                    <button class="filter-btn" data-filter="tcp">TCP</button>
+                    <button class="filter-btn" data-filter="app">Application</button>
+                    <button class="filter-btn" data-filter="iot">IoT</button>
+                    <button class="filter-btn" data-filter="error">Errors</button>
+                </div>
+                <div id="packet-log"></div>
+            </div>
+            
+            <div id="stats" class="tab-content">
+                <h3>Network Statistics</h3>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-label">Total Packets</div>
+                        <div class="stat-value" id="total-packets">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Active Connections</div>
+                        <div class="stat-value" id="active-connections">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Bandwidth Used</div>
+                        <div class="stat-value" id="bandwidth">0 KB</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Packet Loss</div>
+                        <div class="stat-value" id="packet-loss">0%</div>
+                    </div>
+                </div>
+                <h4>Protocol Distribution</h4>
+                <div class="protocol-breakdown">
+                    <div class="protocol-item">
+                        <div class="protocol-circle" style="background: #2196F3;">75%</div>
+                        <div>TCP</div>
+                    </div>
+                    <div class="protocol-item">
+                        <div class="protocol-circle" style="background: #4CAF50;">15%</div>
+                        <div>UDP</div>
+                    </div>
+                    <div class="protocol-item">
+                        <div class="protocol-circle" style="background: #FF9800;">10%</div>
+                        <div>ARP</div>
+                    </div>
+                </div>
+                <h4>Traffic Over Time</h4>
+                <canvas id="traffic-graph"></canvas>
+            </div>
+            
+            <div id="iot" class="tab-content">
+                <h3>IoT Protocol Monitor</h3>
+                <div class="protocol-grid">
+                    <div class="protocol-card">
+                        <div class="protocol-header mqtt">MQTT</div>
+                        <div class="protocol-stats">
+                            <div>Messages: <span id="mqtt-messages">0</span></div>
+                            <div>Topics: <span id="mqtt-topics">0</span></div>
+                            <div>QoS 1+: <span id="mqtt-qos">0</span></div>
+                        </div>
+                    </div>
+                    <div class="protocol-card">
+                        <div class="protocol-header coap">CoAP</div>
+                        <div class="protocol-stats">
+                            <div>Requests: <span id="coap-requests">0</span></div>
+                            <div>Observes: <span id="coap-observes">0</span></div>
+                            <div>Errors: <span id="coap-errors">0</span></div>
+                        </div>
+                    </div>
+                    <div class="protocol-card">
+                        <div class="protocol-header zigbee">ZigBee</div>
+                        <div class="protocol-stats">
+                            <div>Devices: <span id="zigbee-devices">0</span></div>
+                            <div>Messages: <span id="zigbee-messages">0</span></div>
+                            <div>Routes: <span id="zigbee-routes">0</span></div>
+                        </div>
+                    </div>
+                    <div class="protocol-card">
+                        <div class="protocol-header zwave">Z-Wave</div>
+                        <div class="protocol-stats">
+                            <div>Devices: <span id="zwave-devices">0</span></div>
+                            <div>Messages: <span id="zwave-messages">0</span></div>
+                            <div>Hops: <span id="zwave-hops">0</span></div>
+                        </div>
+                    </div>
+                </div>
+                <h4>Protocol Timeline</h4>
+                <canvas id="iot-timeline"></canvas>
+                <h4>Active Topics/Resources</h4>
+                <div id="iot-active-topics"></div>
+            </div>
+        </div>
+    </div>
 
-export class NetworkMonitor {
-    constructor() {
-        this.stats = {
-            totalPackets: 0,
-            activeConnections: new Set(),
-            bandwidth: 0,
-            packetLoss: 0,
-            trafficHistory: [],
-            deviceRegistry: new Map()
-        };
-        
-        this.initializeDeviceRegistry();
-        this.setupEventListeners();
-    }
-    
-    initializeDeviceRegistry() {
-        this.stats.deviceRegistry.set(NETWORK_CONFIG.serverIP, {
-            name: 'Central Server',
-            type: 'Server',
-            mac: NETWORK_CONFIG.macAddresses.server
-        });
-        
-        const deviceNames = {
-            livingRoom: 'Living Room Controller',
-            kitchen: 'Kitchen Controller',
-            bedroom: 'Bedroom Controller',
-            bathroom: 'Bathroom Controller'
-        };
-        
-        Object.entries(NETWORK_CONFIG.deviceIPs).forEach(([key, ip]) => {
-            this.stats.deviceRegistry.set(ip, {
-                name: deviceNames[key],
-                type: 'IoT',
-                mac: NETWORK_CONFIG.macAddresses[key]
-            });
-        });
-    }
-    
-    setupEventListeners() {
-        // Tab switching
-        document.querySelectorAll('.monitor-tab').forEach(tab => {
-            tab.addEventListener('click', () => {
-                document.querySelectorAll('.monitor-tab').forEach(t => t.classList.remove('active'));
-                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-                
-                tab.classList.add('active');
-                document.getElementById(tab.dataset.tab).classList.add('active');
-                
-                if (tab.dataset.tab === 'topology') {
-                    this.updateTopologyGraph();
-                    this.updateDeviceList();
-                }
-            });
-        });
-        
-        // Filter buttons
-        document.querySelectorAll('.filter-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                
-                const filter = btn.dataset.filter;
-                document.querySelectorAll('.packet-entry').forEach(entry => {
-                    if (filter === 'all' || entry.classList.contains(filter)) {
-                        entry.style.display = 'block';
-                    } else {
-                        entry.style.display = 'none';
-                    }
-                });
-            });
-        });
-    }
-    
-    logPacket(packet, type = 'tcp') {
-        const log = document.getElementById('packet-log');
-        const entry = document.createElement('div');
-        entry.className = `packet-entry ${type}`;
-        
-        const time = new Date().toLocaleTimeString();
-        
-        if (type === 'tcp') {
-            entry.innerHTML = `
-                <div class="packet-header">TCP Segment - ${time}</div>
-                <div>Source: ${packet.src} → Destination: ${packet.dst}</div>
-                <div>Seq: ${packet.seq} Ack: ${packet.ack} Window: ${packet.window}</div>
-                <div class="tcp-flags">
-                    ${packet.flags.map(flag => `<span class="tcp-flag ${flag.active ? 'active' : ''}">${flag.name}</span>`).join('')}
-                </div>
-                <div class="packet-data">Data: ${JSON.stringify(packet.data)}</div>
-            `;
-        } else if (type === 'app') {
-            entry.innerHTML = `
-                <div class="packet-header">Application Layer - ${time}</div>
-                <div>Protocol: ${packet.protocol}</div>
-                <div class="packet-data">Data: ${JSON.stringify(packet.data)}</div>
-            `;
-        }
-        
-        log.insertBefore(entry, log.firstChild);
-        if (log.children.length > 100) {
-            log.removeChild(log.lastChild);
-        }
-        
-        // Update statistics
-        this.stats.totalPackets++;
-        this.stats.bandwidth += JSON.stringify(packet).length;
-        this.updateStatsDisplay();
-    }
-    
-    updateStatsDisplay() {
-        document.getElementById('total-packets').textContent = this.stats.totalPackets;
-        document.getElementById('active-connections').textContent = this.stats.activeConnections.size;
-        document.getElementById('bandwidth').textContent = formatBytes(this.stats.bandwidth);
-        document.getElementById('packet-loss').textContent = this.stats.packetLoss + '%';
-    }
-    
-    updateTrafficHistory(bytes) {
-        this.stats.trafficHistory.push({ 
-            time: new Date().getTime(), 
-            bytes: bytes 
-        });
-        this.updateTrafficGraph();
-    }
-    
-    updateTrafficGraph() {
-        const canvas = document.getElementById('traffic-graph');
-        const ctx = canvas.getContext('2d');
-        
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        // Draw grid
-        ctx.strokeStyle = '#444';
-        ctx.lineWidth = 1;
-        for (let i = 0; i <= 5; i++) {
-            const y = (canvas.height / 5) * i;
-            ctx.beginPath();
-            ctx.moveTo(0, y);
-            ctx.lineTo(canvas.width, y);
-            ctx.stroke();
-        }
-        
-        // Draw traffic data
-        ctx.strokeStyle = '#2196F3';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        
-        const now = new Date().getTime();
-        const points = this.stats.trafficHistory.filter(p => now - p.time < 60000);
-        
-        if (points.length > 0) {
-            points.forEach((point, i) => {
-                const x = (1 - (now - point.time) / 60000) * canvas.width;
-                const y = canvas.height - (point.bytes / 1000) * canvas.height;
-                
-                if (i === 0) {
-                    ctx.moveTo(x, y);
-                } else {
-                    ctx.lineTo(x, y);
-                }
-            });
-            ctx.stroke();
-        }
-    }
-    
-    updateTopologyGraph() {
-        const canvas = document.getElementById('topology-graph');
-        const ctx = canvas.getContext('2d');
-        
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        // Draw server
-        ctx.fillStyle = '#2196F3';
-        ctx.beginPath();
-        ctx.arc(canvas.width / 2, 50, 30, 0, Math.PI * 2);
-        ctx.fill();
-        
-        ctx.fillStyle = '#fff';
-        ctx.font = '14px Arial';
-        ctx.textAlign = 'center';
-        ctx.fillText('Server', canvas.width / 2, 55);
-        
-        // Draw room devices
-        const numRooms = Object.keys(ROOMS_CONFIG).length;
-        Object.entries(ROOMS_CONFIG).forEach(([id, room], index) => {
-            const angle = (Math.PI * 2 * index) / numRooms;
-            const x = canvas.width / 2 + Math.cos(angle) * 120;
-            const y = 150 + Math.sin(angle) * 80;
-            
-            // Draw connection line
-            ctx.strokeStyle = '#666';
-            ctx.beginPath();
-            ctx.moveTo(canvas.width / 2, 80);
-            ctx.lineTo(x, y);
-            ctx.stroke();
-            
-            // Draw device
-            ctx.fillStyle = room.color;
-            ctx.beginPath();
-            ctx.arc(x, y, 20, 0, Math.PI * 2);
-            ctx.fill();
-            
-            // Device label
-            ctx.fillStyle = '#fff';
-            ctx.font = '12px Arial';
-            ctx.fillText(room.name, x, y + 30);
-            ctx.fillText(room.ip, x, y + 45);
-        });
-    }
-    
-    updateDeviceList() {
-        const deviceList = document.getElementById('device-list');
-        let html = '';
-        this.stats.deviceRegistry.forEach((device, ip) => {
-            html += `
-                <div style="margin: 10px 0; padding: 10px; background: #333; border-radius: 5px;">
-                    <div><strong>${device.name}</strong></div>
-                    <div>IP: ${ip} | MAC: ${device.mac}</div>
-                    <div>Type: ${device.type}</div>
-                </div>
-            `;
-        });
-        deviceList.innerHTML = html;
-    }
-}
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script type="module" src="js/main.js"></script>
+</body>
+</html>
