@@ -154,6 +154,7 @@ export class MotionSensor {
         this.roomId = roomId;
         this.position = position;
         this.detecting = false;
+        this.peopleCount = 0;  // Track people count
         this.scene = scene;
         
         // Create sensor mesh
@@ -176,9 +177,13 @@ export class MotionSensor {
     }
     
     detect(peopleCount) {
+        this.peopleCount = peopleCount;
         this.detecting = peopleCount > 0;
         this.indicatorMaterial.color.setHex(this.detecting ? 0x00ff00 : 0xff0000);
-        return this.detecting;
+        return {
+            detecting: this.detecting,
+            peopleCount: this.peopleCount
+        };
     }
     
     getStatus() {
@@ -186,6 +191,7 @@ export class MotionSensor {
             deviceId: this.id,
             roomId: this.roomId,
             detecting: this.detecting,
+            peopleCount: this.peopleCount,
             timestamp: new Date().toISOString()
         };
     }

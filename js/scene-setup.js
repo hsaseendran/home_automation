@@ -1,4 +1,4 @@
-import { CAMERA_CONFIG, DAYNIGHT_CONFIG } from './utils/constants.js';
+import { CAMERA_CONFIG } from './utils/constants.js';
 import { updateCameraPosition } from './utils/helpers.js';
 
 export class SceneSetup {
@@ -46,14 +46,8 @@ export class SceneSetup {
         this.ground.rotation.x = -Math.PI / 2;
         this.scene.add(this.ground);
         
-        // Sky dome
-        const skyGeometry = new THREE.SphereGeometry(50, 32, 32);
-        const skyMaterial = new THREE.MeshBasicMaterial({ 
-            color: 0x87CEEB,
-            side: THREE.BackSide
-        });
-        this.sky = new THREE.Mesh(skyGeometry, skyMaterial);
-        this.scene.add(this.sky);
+        // Simple background color instead of sky dome
+        this.scene.background = new THREE.Color(0x87CEEB);
     }
     
     setupCameraControls() {
@@ -97,31 +91,7 @@ export class SceneSetup {
         });
     }
     
-    updateDayNightCycle(currentTime) {
-        const config = DAYNIGHT_CONFIG;
-        
-        if (currentTime >= config.night.start || currentTime < config.night.end) {
-            this.sky.material.color.setHex(config.night.color);
-            this.ambientLight.intensity = config.night.ambient;
-            this.directionalLight.intensity = config.night.directional;
-            this.scene.fog = new THREE.Fog(config.night.color, 10, 50);
-        } else if (currentTime >= config.dawn.start && currentTime < config.dawn.end) {
-            this.sky.material.color.setHex(config.dawn.color);
-            this.ambientLight.intensity = config.dawn.ambient;
-            this.directionalLight.intensity = config.dawn.directional;
-            this.scene.fog = new THREE.Fog(config.dawn.color, 20, 50);
-        } else if (currentTime >= config.dusk.start && currentTime < config.dusk.end) {
-            this.sky.material.color.setHex(config.dusk.color);
-            this.ambientLight.intensity = config.dusk.ambient;
-            this.directionalLight.intensity = config.dusk.directional;
-            this.scene.fog = new THREE.Fog(config.dusk.color, 20, 50);
-        } else {
-            this.sky.material.color.setHex(config.day.color);
-            this.ambientLight.intensity = config.day.ambient;
-            this.directionalLight.intensity = config.day.directional;
-            this.scene.fog = new THREE.Fog(config.day.color, 30, 50);
-        }
-    }
+    // Method removed - no longer needed without day/night cycle
     
     animate() {
         requestAnimationFrame(() => this.animate());

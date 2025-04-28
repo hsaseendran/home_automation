@@ -13,45 +13,16 @@ export class UIControls {
         this.currentTime = 12;
         this.autoAdvanceInterval = null;
         
+        // Track previous occupancy to detect changes
+        this.previousOccupancy = {};
+        Object.keys(this.roomManager.rooms).forEach(roomId => {
+            this.previousOccupancy[roomId] = 0;
+        });
+        
         this.setupEventListeners();
     }
     
     setupEventListeners() {
-        // Time slider
-        const timeSlider = document.getElementById('time-slider');
-        timeSlider.addEventListener('input', (e) => {
-            this.currentTime = parseInt(e.target.value);
-            document.getElementById('current-time').textContent = formatTime(this.currentTime);
-            this.sceneSetup.updateDayNightCycle(this.currentTime);
-            
-            // Simulate people movement based on time
-            if (this.peopleSimulator.simulateMovement(this.currentTime)) {
-                this.updateRoomInfo();
-            }
-        });
-        
-        // Auto-advance button
-        const autoAdvanceBtn = document.getElementById('auto-advance');
-        autoAdvanceBtn.addEventListener('click', () => {
-            if (this.autoAdvanceInterval) {
-                clearInterval(this.autoAdvanceInterval);
-                this.autoAdvanceInterval = null;
-                autoAdvanceBtn.textContent = 'Auto-Advance Time';
-            } else {
-                this.autoAdvanceInterval = setInterval(() => {
-                    this.currentTime = (this.currentTime + 1) % 24;
-                    timeSlider.value = this.currentTime;
-                    document.getElementById('current-time').textContent = formatTime(this.currentTime);
-                    this.sceneSetup.updateDayNightCycle(this.currentTime);
-                    
-                    if (this.peopleSimulator.simulateMovement(this.currentTime)) {
-                        this.updateRoomInfo();
-                    }
-                }, 2000);
-                autoAdvanceBtn.textContent = 'Stop Auto-Advance';
-            }
-        });
-        
         // Reset button
         document.getElementById('reset-sim').addEventListener('click', () => {
             this.resetSimulation();
@@ -77,55 +48,75 @@ export class UIControls {
         
         Object.entries(this.roomManager.rooms).forEach(([id, room], index) => {
             const peopleCount = this.peopleSimulator.getRoomOccupancy(id);
-            const controller = this.roomControllers[id];
+            const { lightOn, temp } = this.roomManager.updateRoomState(id, peopleCount);
             
-            // Update motion sensor with people count
-            controller.updateMotionSensor(peopleCount);
-            
-            // Get device status for display
-            const status = controller.getRoomStatus();
+            // Update room controller with current state
+            if (this.roomControllers[id]) {
+                this.roomControllers[id].updateMotionSensor(peopleCount);
+            }
             
             html += `
                 <div style="margin: 5px 0; padding: 5px; background: rgba(255, 255, 255, 0.1); border-radius: 4px;">
                     <strong>${room.name}</strong><br>
                     People: ${peopleCount} | 
-                    Light: ${status.devices.light.state} | 
-                    Temp: ${status.devices.thermostat.temperature.toFixed(1)}°C → ${status.devices.thermostat.targetTemp}°C | 
-                    Motion: ${status.devices.motionSensor.detecting ? 'Yes' : 'No'}
+                    Light: ${lightOn ? 'ON' : 'OFF'} | 
+                    Temp: ${temp}°C
                     <br><small>Press ${index + 1} to add person</small>
                 </div>
             `;
             
-            // Simulate TCP connection when state changes
-            if (peopleCount > 0 || Math.random() < 0.1) {
+            // Simulate TCP connection when occupancy changes or periodically
+            const occupancyChanged = peopleCount !== this.previousOccupancy[id];
+            if (occupancyChanged || Math.random() < 0.1) {
                 this.tcpSimulator.simulateFullConnection(id, peopleCount);
+                
+                // Also simulate IoT protocol messages
+                this.simulateIoTMessages(id, peopleCount, lightOn, temp);
             }
+            
+            // Update previous occupancy
+            this.previousOccupancy[id] = peopleCount;
         });
         
         roomInfo.innerHTML = html;
     }
     
-    resetSimulation() {
-        // Reset time
-        this.currentTime = 12;
-        document.getElementById('time-slider').value = this.currentTime;
-        document.getElementById('current-time').textContent = formatTime(this.currentTime);
-        this.sceneSetup.updateDayNightCycle(this.currentTime);
+    simulateIoTMessages(roomId, peopleCount, lightOn, temp) {
+        // MQTT publish
+        this.iotProtocols.simulateMQTT(roomId, 'sensors', {
+            occupancy: peopleCount,
+            light: lightOn ? 1 : 0,
+            temperature: temp
+        });
         
-        // Clear auto-advance
-        if (this.autoAdvanceInterval) {
-            clearInterval(this.autoAdvanceInterval);
-            this.autoAdvanceInterval = null;
-            document.getElementById('auto-advance').textContent = 'Auto-Advance Time';
+        // CoAP update
+        this.iotProtocols.simulateCoAP(roomId, 'POST', `/rooms/${roomId}/status`, {
+            occupancy: peopleCount,
+            light: lightOn,
+            temp: temp
+        });
+        
+        // ZigBee report
+        this.iotProtocols.simulateZigBee(roomId, 'occupancy', {
+            count: peopleCount,
+            detected: peopleCount > 0
+        });
+        
+        // Z-Wave command
+        if (lightOn) {
+            this.iotProtocols.simulateZWave(roomId, 'BASIC', 'SET', { value: 255 });
+        } else {
+            this.iotProtocols.simulateZWave(roomId, 'BASIC', 'SET', { value: 0 });
         }
-        
+    }
+    
+    resetSimulation() {
         // Reset people
         this.peopleSimulator.reset();
         
-        // Reset all device states
-        Object.values(this.roomControllers).forEach(controller => {
-            controller.setLight('OFF');
-            controller.setTemperature(22);
+        // Reset previous occupancy tracking
+        Object.keys(this.previousOccupancy).forEach(roomId => {
+            this.previousOccupancy[roomId] = 0;
         });
         
         this.updateRoomInfo();

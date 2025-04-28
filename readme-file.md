@@ -19,6 +19,7 @@ home-automation/
 │   ├── people-simulator.js # People movement simulation
 │   ├── ui-controls-iot.js # User interface controls
 │   ├── iot-protocols.js # Iot protocols
+│   ├── network-layers.js # Network layers for monitoring
 │   └── utils/
 │       ├── constants.js # Configuration constants
 │       └── helpers.js   # Utility functions
@@ -29,8 +30,8 @@ home-automation/
 
 - 3D visualization of a four-room home
 - Real-time TCP/IP packet simulation
-- Automatic lighting and temperature control based on occupancy
-- Day/night cycle simulation
+- Automatic lighting control based on occupancy
+- Temperature control based on room occupancy  
 - Interactive network monitoring with:
   - TCP packet visualization
   - Network statistics
@@ -51,8 +52,6 @@ home-automation/
 
 - **Mouse**: Drag to rotate view, scroll to zoom
 - **Keyboard**: Press 1-4 to add people to rooms
-- **Time Slider**: Adjust time of day
-- **Auto-Advance**: Automatically progress through 24 hours
 - **Reset**: Reset simulation to initial state
 
 ## Dependencies

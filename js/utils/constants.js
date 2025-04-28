@@ -71,10 +71,4 @@ export const CAMERA_CONFIG = {
     maxDistance: 50
 };
 
-// Day/Night configuration
-export const DAYNIGHT_CONFIG = {
-    night: { start: 19, end: 6, color: 0x191970, ambient: 0.3, directional: 0.2 },
-    dawn: { start: 6, end: 7, color: 0xFFA07A, ambient: 0.8, directional: 0.6 },
-    dusk: { start: 18, end: 19, color: 0xFF8C69, ambient: 0.8, directional: 0.6 },
-    day: { color: 0x87CEEB, ambient: 1.5, directional: 1 }
-};
+// Day/Night configuration removed - lights are now based on occupancy only

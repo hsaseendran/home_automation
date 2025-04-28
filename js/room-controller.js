@@ -15,13 +15,22 @@ export class RoomController {
         this.deviceStates = {
             light: { state: 'OFF', brightness: 0 },
             thermostat: { temperature: 22, targetTemp: 22, mode: 'AUTO' },
-            motionSensor: { detecting: false }
+            motionSensor: { detecting: false, peopleCount: 0 }
         };
     }
     
     // Process commands received from server via TCP
     processServerCommands(commands) {
         console.log(`Room Controller ${this.roomId} received commands:`, commands);
+        
+        // Log the controller message
+        this.networkMonitor.logControllerMessage({
+            from: 'Server',
+            to: `${this.roomConfig.name} Controller`,
+            type: 'command',
+            action: 'PROCESS_COMMANDS',
+            data: commands
+        });
         
         commands.forEach(command => {
             switch (command.type) {
@@ -40,6 +49,15 @@ export class RoomController {
     
     // Send command to light using appropriate IoT protocol
     setLight(state) {
+        // Log controller to device message
+        this.networkMonitor.logControllerMessage({
+            from: `${this.roomConfig.name} Controller`,
+            to: `${this.roomId}-light`,
+            type: 'command',
+            action: 'SET_LIGHT',
+            data: { state: state }
+        });
+        
         // Simulate using Zigbee for light control
         this.iotProtocols.simulateZigBee(this.roomId, 'light', {
             command: 'ON_OFF',
@@ -57,22 +75,26 @@ export class RoomController {
         this.devices.light.handleCommand({ type: 'SET_LIGHT', value: state });
         this.deviceStates.light.state = state;
         
-        // Log the command execution
-        this.networkMonitor.logPacket({
-            src: this.roomConfig.ip + ':5000',
-            dst: `${this.roomId}-light`,
-            protocol: 'ZigBee',
-            messageType: 'COMMAND',
-            data: {
-                command: 'SET_LIGHT',
-                value: state,
-                timestamp: new Date().toISOString()
-            }
-        }, 'iot');
+        // Log device response
+        this.networkMonitor.logDeviceMessage({
+            deviceId: `${this.roomId}-light`,
+            deviceType: 'light',
+            event: 'STATE_CHANGED',
+            data: { state: state, timestamp: new Date().toISOString() }
+        });
     }
     
     // Send command to thermostat using appropriate IoT protocol
     setTemperature(temp) {
+        // Log controller to device message
+        this.networkMonitor.logControllerMessage({
+            from: `${this.roomConfig.name} Controller`,
+            to: `${this.roomId}-thermostat`,
+            type: 'command',
+            action: 'SET_TEMPERATURE',
+            data: { temperature: temp }
+        });
+        
         // Simulate using Z-Wave for thermostat control
         this.iotProtocols.simulateZWave(this.roomId, 'THERMOSTAT_SETPOINT', 'SET', {
             value: temp,
@@ -88,52 +110,61 @@ export class RoomController {
         this.devices.thermostat.handleCommand({ type: 'SET_TEMP', value: temp });
         this.deviceStates.thermostat.targetTemp = temp;
         
-        // Log the command execution
-        this.networkMonitor.logPacket({
-            src: this.roomConfig.ip + ':5000',
-            dst: `${this.roomId}-thermostat`,
-            protocol: 'Z-Wave',
-            messageType: 'COMMAND',
-            data: {
-                command: 'SET_TEMP',
-                value: temp,
-                timestamp: new Date().toISOString()
-            }
-        }, 'iot');
+        // Log device response
+        this.networkMonitor.logDeviceMessage({
+            deviceId: `${this.roomId}-thermostat`,
+            deviceType: 'thermostat',
+            event: 'TARGET_TEMP_CHANGED',
+            data: { targetTemp: temp, timestamp: new Date().toISOString() }
+        });
     }
     
     // Handle motion detection
     updateMotionSensor(peopleCount) {
-        const detecting = this.devices.motionSensor.detect(peopleCount);
+        const result = this.devices.motionSensor.detect(peopleCount);
         
-        if (detecting !== this.deviceStates.motionSensor.detecting) {
+        if (result.detecting !== this.deviceStates.motionSensor.detecting || 
+            result.peopleCount !== this.deviceStates.motionSensor.peopleCount) {
+            
             // State changed - send notification
             this.iotProtocols.simulateZigBee(this.roomId, 'occupancy', {
                 count: peopleCount,
-                detected: detecting
+                detected: result.detecting
             });
             
             this.iotProtocols.simulateMQTT(this.roomId, 'sensors', {
                 deviceId: `${this.roomId}-motion`,
                 event: 'MOTION_DETECTED',
-                value: detecting,
+                value: result.detecting,
                 peopleCount: peopleCount
             });
             
-            this.deviceStates.motionSensor.detecting = detecting;
+            this.deviceStates.motionSensor.detecting = result.detecting;
+            this.deviceStates.motionSensor.peopleCount = result.peopleCount;
             
-            // Log the event
-            this.networkMonitor.logPacket({
-                src: `${this.roomId}-motion`,
-                dst: this.roomConfig.ip + ':5000',
-                protocol: 'ZigBee',
-                messageType: 'EVENT',
-                data: {
-                    event: 'MOTION_DETECTED',
-                    detecting: detecting,
-                    timestamp: new Date().toISOString()
+            // Log device event
+            this.networkMonitor.logDeviceMessage({
+                deviceId: `${this.roomId}-motion`,
+                deviceType: 'sensor',
+                event: 'MOTION_DETECTED',
+                data: { 
+                    detecting: result.detecting, 
+                    peopleCount: result.peopleCount, 
+                    timestamp: new Date().toISOString() 
                 }
-            }, 'iot');
+            });
+            
+            // Log controller notification
+            this.networkMonitor.logControllerMessage({
+                from: `${this.roomId}-motion`,
+                to: `${this.roomConfig.name} Controller`,
+                type: 'event',
+                action: 'MOTION_DETECTION',
+                data: { 
+                    detecting: result.detecting, 
+                    peopleCount: result.peopleCount 
+                }
+            });
         }
     }
     

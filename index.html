@@ -14,12 +14,6 @@
             
             <div id="controls">
                 <h3>Home Automation Control</h3>
-                <div>
-                    <label>Time: </label>
-                    <span id="current-time">12:00</span>
-                    <input type="range" id="time-slider" min="0" max="23" value="12" style="width: 150px;">
-                </div>
-                <button class="btn" id="auto-advance">Auto-Advance Time</button>
                 <button class="btn" id="reset-sim">Reset Simulation</button>
             </div>
             
@@ -30,10 +24,12 @@
         </div>
         
         <div id="network-monitor">
-            <div style="display: flex; border-bottom: 1px solid #555;">
-                <div class="monitor-tab active" data-tab="packets">TCP/IP Packets</div>
-                <div class="monitor-tab" data-tab="stats">Network Stats</div>
-                <div class="monitor-tab" data-tab="iot">IoT Protocols</div>
+            <div style="display: flex; border-bottom: 1px solid #555; flex-wrap: wrap;">
+                <div class="monitor-tab active" data-tab="packets">TCP/IP</div>
+                <div class="monitor-tab" data-tab="stats">Stats</div>
+                <div class="monitor-tab" data-tab="iot">IoT</div>
+                <div class="monitor-tab" data-tab="controller-msgs">Controllers</div>
+                <div class="monitor-tab" data-tab="device-msgs">Devices</div>
             </div>
             
             <div id="packets" class="tab-content active">
@@ -41,6 +37,12 @@
                 <div class="log-filters">
                     <button class="filter-btn active" data-filter="all">All</button>
                     <button class="filter-btn" data-filter="tcp">TCP</button>
+                    <button class="filter-btn" data-filter="physical">Physical</button>
+                    <button class="filter-btn" data-filter="dataLink">Data Link</button>
+                    <button class="filter-btn" data-filter="network">Network</button>
+                    <button class="filter-btn" data-filter="transport">Transport</button>
+                    <button class="filter-btn" data-filter="session">Session</button>
+                    <button class="filter-btn" data-filter="presentation">Presentation</button>
                     <button class="filter-btn" data-filter="app">Application</button>
                     <button class="filter-btn" data-filter="iot">IoT</button>
                     <button class="filter-btn" data-filter="error">Errors</button>
@@ -127,6 +129,30 @@
                 <canvas id="iot-timeline"></canvas>
                 <h4>Active Topics/Resources</h4>
                 <div id="iot-active-topics"></div>
+            </div>
+            
+            <!-- Controller Messages tab -->
+            <div id="controller-msgs" class="tab-content">
+                <h3>Controller Messages</h3>
+                <div class="log-filters">
+                    <button class="filter-btn active" data-filter="all">All</button>
+                    <button class="filter-btn" data-filter="command">Commands</button>
+                    <button class="filter-btn" data-filter="status">Status</button>
+                    <button class="filter-btn" data-filter="event">Events</button>
+                </div>
+                <div id="controller-log"></div>
+            </div>
+            
+            <!-- Device Messages tab -->
+            <div id="device-msgs" class="tab-content">
+                <h3>Device Messages</h3>
+                <div class="log-filters">
+                    <button class="filter-btn active" data-filter="all">All</button>
+                    <button class="filter-btn" data-filter="light">Lights</button>
+                    <button class="filter-btn" data-filter="thermostat">Thermostats</button>
+                    <button class="filter-btn" data-filter="sensor">Sensors</button>
+                </div>
+                <div id="device-log"></div>
             </div>
         </div>
     </div>

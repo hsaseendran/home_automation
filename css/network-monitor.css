@@ -15,6 +15,7 @@
     border-right: 1px solid #555;
     flex: 1;
     text-align: center;
+    min-width: 80px;
 }
 
 .monitor-tab.active {
@@ -242,3 +243,87 @@
 .iot-coap { color: #4CC9F0; }
 .iot-zigbee { color: #7209B7; }
 .iot-zwave { color: #F72585; }
+
+/* Layer-specific styling */
+.layer-physical { color: #FF5722; }
+.layer-datalink { color: #FF9800; }
+.layer-network { color: #FFC107; }
+.layer-transport { color: #4CAF50; }
+.layer-session { color: #2196F3; }
+.layer-presentation { color: #3F51B5; }
+.layer-application { color: #9C27B0; }
+
+/* Update packet entry styling */
+.packet-entry.physical { border-left: 4px solid #FF5722; }
+.packet-entry.dataLink { border-left: 4px solid #FF9800; }
+.packet-entry.transport { border-left: 4px solid #4CAF50; }
+.packet-entry.session { border-left: 4px solid #2196F3; }
+.packet-entry.presentation { border-left: 4px solid #3F51B5; }
+
+/* Controller Message Styles */
+.controller-msg {
+    margin: 10px 0;
+    padding: 10px;
+    background: #333;
+    border-radius: 5px;
+    font-family: monospace;
+    font-size: 12px;
+    border-left: 4px solid #2196F3;
+}
+
+.controller-msg.command {
+    border-left-color: #FF9800;
+}
+
+.controller-msg.status {
+    border-left-color: #4CAF50;
+}
+
+.controller-msg.event {
+    border-left-color: #E91E63;
+}
+
+.msg-header {
+    color: #fff;
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.msg-content {
+    color: #ddd;
+    padding-left: 10px;
+}
+
+/* Device Message Styles */
+.device-msg {
+    margin: 10px 0;
+    padding: 10px;
+    background: #333;
+    border-radius: 5px;
+    font-family: monospace;
+    font-size: 12px;
+    border-left: 4px solid #9C27B0;
+}
+
+.device-msg.light {
+    border-left-color: #FFEB3B;
+}
+
+.device-msg.thermostat {
+    border-left-color: #03A9F4;
+}
+
+.device-msg.sensor {
+    border-left-color: #F44336;
+}
+
+.device-identifier {
+    color: #9C27B0;
+    font-weight: bold;
+}
+
+.msg-timestamp {
+    color: #888;
+    font-size: 11px;
+    float: right;
+}

@@ -8,34 +8,38 @@ import { IoTProtocols } from './iot-protocols.js';
 import { UIControls } from './ui-controls-iot.js';
 import { DeviceManager } from './device-controllers.js';
 import { RoomController } from './room-controller.js';
+import { NetworkLayers } from './network-layers.js';
 import { updateCanvasSize } from './utils/helpers.js';
 
 class HomeAutomationSystem {
     constructor() {
         // Initialize components
         this.sceneSetup = new SceneSetup();
-        this.deviceManager = new DeviceManager(this.sceneSetup.scene);
         this.roomManager = new RoomManager(this.sceneSetup.scene);
         this.peopleSimulator = new PeopleSimulator(this.sceneSetup.scene, this.roomManager);
         this.networkMonitor = new NetworkMonitor();
-        this.tcpSimulator = new TCPSimulator(this.networkMonitor, this.roomManager);
+        this.deviceManager = new DeviceManager(this.sceneSetup.scene);
         this.iotProtocols = new IoTProtocols(this.networkMonitor, this.roomManager);
+        this.networkLayers = new NetworkLayers(this.networkMonitor);
         
-        // Create room controllers
+        // Initialize room controllers
         this.roomControllers = {};
-        Object.entries(this.roomManager.rooms).forEach(([roomId, roomConfig]) => {
+        Object.keys(this.roomManager.rooms).forEach(roomId => {
             this.roomControllers[roomId] = new RoomController(
-                roomId, 
-                roomConfig, 
-                this.deviceManager, 
-                this.networkMonitor, 
+                roomId,
+                this.roomManager.rooms[roomId],
+                this.deviceManager,
+                this.networkMonitor,
                 this.iotProtocols
             );
         });
         
-        // Enhance TCP simulator to work with room controllers
+        // Initialize TCP simulator with room controllers and network layers
+        this.tcpSimulator = new TCPSimulator(this.networkMonitor, this.roomManager);
         this.tcpSimulator.setRoomControllers(this.roomControllers);
+        this.tcpSimulator.setNetworkLayers(this.networkLayers);
         
+        // Initialize UI controls
         this.uiControls = new UIControls(
             this.sceneSetup, 
             this.peopleSimulator, 
@@ -61,7 +65,6 @@ class HomeAutomationSystem {
         // Initialize people and display
         this.peopleSimulator.updatePeople();
         this.uiControls.updateRoomInfo();
-        this.sceneSetup.updateDayNightCycle(this.uiControls.currentTime);
         
         // Log initial network message
         this.networkMonitor.logPacket({
@@ -74,43 +77,61 @@ class HomeAutomationSystem {
             data: 'Home Automation Server initialized'
         });
         
-        // Initialize IoT devices
-        Object.values(this.roomControllers).forEach(controller => {
-            // Simulate device registration
-            const devices = controller.devices;
-            
-            // Register light
-            this.iotProtocols.simulateZigBee(controller.roomId, 'join', { 
-                deviceId: devices.light.id,
-                deviceType: 'SmartLight',
-                capabilities: ['ON_OFF', 'DIMMING'] 
+        // Log initial controller message
+        this.networkMonitor.logControllerMessage({
+            from: 'Server',
+            to: 'All Controllers',
+            type: 'status',
+            action: 'SYSTEM_INITIALIZATION',
+            data: { status: 'ready', timestamp: new Date().toISOString() }
+        });
+        
+        // Initialize IoT protocols for each room
+        Object.keys(this.roomManager.rooms).forEach(roomId => {
+            // Device registration messages
+            this.networkMonitor.logDeviceMessage({
+                deviceId: `${roomId}-light`,
+                deviceType: 'light',
+                event: 'DEVICE_REGISTERED',
+                data: { name: `${roomId} Light`, capabilities: ['ON_OFF', 'BRIGHTNESS'] }
             });
             
-            // Register thermostat
-            this.iotProtocols.simulateZWave(controller.roomId, 'ADD_NODE', 'START', {
-                deviceId: devices.thermostat.id,
-                deviceType: 'Thermostat',
-                capabilities: ['TEMPERATURE', 'SETPOINT', 'MODE']
+            this.networkMonitor.logDeviceMessage({
+                deviceId: `${roomId}-thermostat`,
+                deviceType: 'thermostat',
+                event: 'DEVICE_REGISTERED',
+                data: { name: `${roomId} Thermostat`, capabilities: ['TEMPERATURE', 'MODE'] }
             });
             
-            // Register motion sensor
-            this.iotProtocols.simulateZigBee(controller.roomId, 'join', { 
-                deviceId: devices.motionSensor.id,
-                deviceType: 'MotionSensor',
-                capabilities: ['OCCUPANCY', 'BINARY_SENSOR'] 
+            this.networkMonitor.logDeviceMessage({
+                deviceId: `${roomId}-motion`,
+                deviceType: 'sensor',
+                event: 'DEVICE_REGISTERED',
+                data: { name: `${roomId} Motion Sensor`, capabilities: ['MOTION_DETECTION'] }
             });
+            
+            // IoT protocol initialization
+            this.iotProtocols.simulateZigBee(roomId, 'join', { 
+                capabilities: ['Router', 'Mains-powered'] 
+            });
+            
+            // Simulate MQTT subscription
+            this.iotProtocols.simulateMQTT(roomId, 'status', {
+                event: 'subscribe',
+                topic: `/home/${roomId}/control`
+            });
+            
+            // Simulate initial network stack setup
+            this.networkLayers.simulateDHCP(this.roomManager.rooms[roomId].ip);
+            
+            // Simulate device ping check
+            setTimeout(() => {
+                this.networkLayers.simulatePing('192.168.1.1', this.roomManager.rooms[roomId].ip);
+            }, 2000);
         });
         
         // Start periodic IoT updates
         this.iotProtocols.startPeriodicUpdates();
-        
-        // Start periodic device status updates
-        setInterval(() => {
-            Object.values(this.roomControllers).forEach(controller => {
-                const status = controller.getRoomStatus();
-                this.iotProtocols.simulateMQTT(controller.roomId, 'status', status);
-            });
-        }, 10000);
     }
     
     animate() {

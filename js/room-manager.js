@@ -147,7 +147,7 @@ export class RoomManager {
         panel.texture.needsUpdate = true;
     }
     
-    updateRoomState(roomId, peopleCount, currentTime) {
+    updateRoomState(roomId, peopleCount) {
         const room = this.rooms[roomId];
         const light = this.lights[roomId];
         const detector = this.detectors[roomId];
@@ -156,9 +156,8 @@ export class RoomManager {
         // Update people detector
         detector.material.color.setHex(peopleCount > 0 ? 0x00ff00 : 0xff0000);
         
-        // Light control
-        const isDaytime = currentTime >= 7 && currentTime < 19;
-        const lightOn = peopleCount > 0 && !isDaytime;
+        // Light control - lights on if people detected
+        const lightOn = peopleCount > 0;
         light.material.color.setHex(lightOn ? 0xffff00 : 0x808080);
         light.material.emissive.setHex(lightOn ? 0xffff00 : 0x000000);
         light.material.emissiveIntensity = lightOn ? 0.5 : 0;
@@ -173,20 +172,13 @@ export class RoomManager {
             roomMesh.glowMesh.material.color.setHex(room.color);
         }
         
-        // Temperature control
-        let temp = 22;
-        if (peopleCount > 0) {
-            if (currentTime >= 6 && currentTime <= 9) temp = 23;
-            else if (currentTime >= 17 && currentTime <= 22) temp = 24;
-            else if (currentTime >= 22 || currentTime <= 6) temp = 20;
-        } else {
-            temp = 18;
-        }
+        // Temperature control - simplified
+        let temp = peopleCount > 0 ? 22 : 18;
         room.temp = temp;
         
         this.updateStatusPanel(roomId, peopleCount);
         
-        return { lightOn, temp, isDaytime };
+        return { lightOn, temp };
     }
     
     animateConnection(roomId, duration = 1000) {

@@ -6,11 +6,16 @@ export class TCPSimulator {
         this.networkMonitor = networkMonitor;
         this.roomManager = roomManager;
         this.roomControllers = null;
+        this.networkLayers = null;
         this.tcpSessions = {};
     }
     
     setRoomControllers(controllers) {
         this.roomControllers = controllers;
+    }
+    
+    setNetworkLayers(networkLayers) {
+        this.networkLayers = networkLayers;
     }
     
     createSessionKey(fromDevice, toDevice) {
@@ -36,15 +41,29 @@ export class TCPSimulator {
         const sessionKey = this.createSessionKey(client, server);
         const session = this.initSession(sessionKey);
         
-        this.simulateThreeWayHandshake(client, server, session, sessionKey);
+        // Start with full network stack communication
+        if (this.networkLayers) {
+            this.networkLayers.simulateFullStackCommunication(client.ip, server.ip, {
+                type: 'tcp_connection',
+                source: client,
+                destination: server
+            });
+        }
         
+        // Then proceed with TCP handshake
+        setTimeout(() => {
+            this.simulateThreeWayHandshake(client, server, session, sessionKey);
+        }, 500);
+        
+        // Data transfer
         setTimeout(() => {
             this.simulateDataTransfer(client, server, session, roomId, peopleCount);
-        }, 1500);
+        }, 2000);
         
+        // Connection termination
         setTimeout(() => {
             this.simulateConnectionTermination(client, server, session, sessionKey);
-        }, 3000);
+        }, 3500);
         
         this.roomManager.animateConnection(roomId, 6000);
     }
@@ -65,7 +84,7 @@ export class TCPSimulator {
                 { name: 'PSH', active: false }
             ],
             data: null
-        });
+        }, 'tcp');
         
         session.state = 'SYN_SENT';
         session.seq++;
@@ -87,7 +106,7 @@ export class TCPSimulator {
                     { name: 'PSH', active: false }
                 ],
                 data: null
-            });
+            }, 'tcp');
             
             session.state = 'SYN_RECEIVED';
             session.ack++;
@@ -108,7 +127,7 @@ export class TCPSimulator {
                         { name: 'PSH', active: false }
                     ],
                     data: null
-                });
+                }, 'tcp');
                 
                 session.state = 'ESTABLISHED';
                 this.networkMonitor.stats.activeConnections.add(sessionKey);
@@ -128,6 +147,7 @@ export class TCPSimulator {
             timestamp: new Date().toISOString()
         };
         
+        // TCP packet with data
         this.networkMonitor.logPacket({
             src: client.ip + ':' + client.port,
             dst: server.ip + ':' + server.port,
@@ -142,36 +162,43 @@ export class TCPSimulator {
                 { name: 'PSH', active: true }
             ],
             data: personDetectionData
-        });
+        }, 'tcp');
+        
+        // Application layer message
+        this.networkMonitor.logPacket({
+            protocol: 'HTTP',
+            data: {
+                method: 'POST',
+                uri: `/api/sensors/${roomId}/motion`,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Device-ID': room.ip,
+                    'Authorization': 'Bearer ' + this.generateMockToken()
+                },
+                body: personDetectionData
+            }
+        }, 'app');
         
         session.seq += JSON.stringify(personDetectionData).length;
         
-        // Server acknowledges and sends commands
+        // Server response
         setTimeout(() => {
-            // Server logic to determine commands based on people count and time
-            const currentTime = new Date().getHours();
-            const isDaytime = currentTime >= 7 && currentTime < 19;
             const commands = [];
             
-            // Light command based on occupancy and time
-            if (peopleCount > 0 && !isDaytime) {
+            // Light command based on occupancy
+            if (peopleCount > 0) {
                 commands.push({ type: 'SET_LIGHT', value: 'ON' });
-            } else if (peopleCount === 0) {
+            } else {
                 commands.push({ type: 'SET_LIGHT', value: 'OFF' });
             }
             
-            // Temperature command based on occupancy and time
-            let targetTemp = 18; // Default unoccupied temp
-            if (peopleCount > 0) {
-                if (currentTime >= 6 && currentTime <= 9) targetTemp = 23;
-                else if (currentTime >= 17 && currentTime <= 22) targetTemp = 24;
-                else if (currentTime >= 22 || currentTime <= 6) targetTemp = 20;
-                else targetTemp = 22;
-            }
+            // Temperature command based on occupancy
+            let targetTemp = peopleCount > 0 ? 22 : 18;
             commands.push({ type: 'SET_TEMP', value: targetTemp });
             
             const serverCommand = { commands };
             
+            // TCP response packet
             this.networkMonitor.logPacket({
                 src: server.ip + ':' + server.port,
                 dst: client.ip + ':' + client.port,
@@ -186,9 +213,22 @@ export class TCPSimulator {
                     { name: 'PSH', active: true }
                 ],
                 data: serverCommand
-            });
+            }, 'tcp');
             
-            // Now route commands to the room controller
+            // Application layer response
+            this.networkMonitor.logPacket({
+                protocol: 'HTTP',
+                data: {
+                    status: '200 OK',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Server-ID': 'home-automation-001'
+                    },
+                    body: serverCommand
+                }
+            }, 'app');
+            
+            // Route commands to the room controller
             if (this.roomControllers && this.roomControllers[roomId]) {
                 this.roomControllers[roomId].processServerCommands(commands);
             }
@@ -213,7 +253,7 @@ export class TCPSimulator {
                 { name: 'PSH', active: false }
             ],
             data: null
-        });
+        }, 'tcp');
         
         session.state = 'FIN_WAIT_1';
         session.seq++;
@@ -234,7 +274,7 @@ export class TCPSimulator {
                     { name: 'PSH', active: false }
                 ],
                 data: null
-            });
+            }, 'tcp');
             
             session.state = 'LAST_ACK';
             session.ack++;
@@ -255,13 +295,24 @@ export class TCPSimulator {
                         { name: 'PSH', active: false }
                     ],
                     data: null
-                });
+                }, 'tcp');
                 
                 session.state = 'CLOSED';
                 this.networkMonitor.stats.activeConnections.delete(sessionKey);
                 this.networkMonitor.updateStatsDisplay();
             }, 500);
         }, 500);
+    }
+    
+    generateMockToken() {
+        // Generate a mock JWT token
+        const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
+        const payload = btoa(JSON.stringify({ 
+            sub: 'device_' + Math.random().toString(36).substr(2, 9),
+            exp: Date.now() + 3600000 
+        }));
+        const signature = 'mock_signature';
+        return `${header}.${payload}.${signature}`;
     }
     
     sendQuickMessage(from, to, command) {
@@ -289,7 +340,7 @@ export class TCPSimulator {
                 { name: 'PSH', active: true }
             ],
             data: command
-        });
+        }, 'tcp');
         
         session.seq += JSON.stringify(command).length;
         this.networkMonitor.updateTrafficHistory(JSON.stringify(command).length);
